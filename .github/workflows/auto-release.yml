@@ -14,11 +14,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Get Pull Request associated with this commit
-        id: get_pr
-        uses: 8BitJonny/gh-get-current-pr@v1.3.0
+      - uses: 8BitJonny/gh-get-current-pr@3.0.0
+        id: PR
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ github.sha }}
+          filterOutClosed: true
+          filterOutDraft: true
 
       - name: Get PR labels
         id: pr_labels
