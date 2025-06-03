@@ -1,9 +1,9 @@
-name: Auto Tag and Release on Merge to Main (with PR Label)
+name: Auto Tag and Release on Merge to Master (with PR Label)
 
 on:
   push:
     branches:
-      - main
+      - master
 
 jobs:
   tag-release:
