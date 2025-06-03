@@ -62,10 +62,6 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           default_bump: ${{ steps.bump_type.outputs.bump }}
 
-      - name: Push new tag to repo
-        if: steps.tag_version.outputs.new_tag != ''
-        run: git push origin ${{ steps.tag_version.outputs.new_tag }}
-
       - name: Create GitHub Release
         if: steps.tag_version.outputs.new_tag != ''
         uses: softprops/action-gh-release@v2
