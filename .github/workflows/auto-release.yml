@@ -1,0 +1,71 @@
+name: Auto Tag and Release on Merge to Main (with PR Label)
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  tag-release:
+    name: Tag and Release based on PR label
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get Pull Request associated with this commit
+        id: get_pr
+        uses: 8BitJonny/gh-get-current-pr@v1.3.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get PR labels
+        id: pr_labels
+        run: |
+          echo "labels=$(curl -s -H 'Authorization: token ${{ secrets.GITHUB_TOKEN }}' \
+            https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.get_pr.outputs.pr_number }}/labels \
+            | jq -r '.[].name' | tr '\n' ' ')" >> $GITHUB_OUTPUT
+
+      - name: Determine bump type
+        id: bump_type
+        run: |
+          LABELS="${{ steps.pr_labels.outputs.labels }}"
+          echo "Detected labels: $LABELS"
+
+          if echo "$LABELS" | grep -q "release:major"; then
+            echo "bump=major" >> $GITHUB_OUTPUT
+          elif echo "$LABELS" | grep -q "release:minor"; then
+            echo "bump=minor" >> $GITHUB_OUTPUT
+          elif echo "$LABELS" | grep -q "release:patch"; then
+            echo "bump=patch" >> $GITHUB_OUTPUT
+          else
+            echo "Aucun label reconnu, bump par défaut = patch"
+            echo "bump=patch" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set up Git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump version and create tag
+        id: tag_version
+        uses: mathieudutour/github-tag-action@v6.1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          default_bump: ${{ steps.bump_type.outputs.bump }}
+
+      - name: Push new tag to repo
+        if: steps.tag_version.outputs.new_tag != ''
+        run: git push origin ${{ steps.tag_version.outputs.new_tag }}
+
+      - name: Create GitHub Release
+        if: steps.tag_version.outputs.new_tag != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag_version.outputs.new_tag }}
+          name: Release ${{ steps.tag_version.outputs.new_tag }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
