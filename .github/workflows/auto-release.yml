@@ -46,7 +46,7 @@ jobs:
           elif echo "$LABELS" | grep -q "release:patch"; then
             echo "bump=patch" >> $GITHUB_OUTPUT
           else
-            echo "Aucun label reconnu, bump par défaut = patch"
+            echo "No recognized label, default bump = patch"
             echo "bump=patch" >> $GITHUB_OUTPUT
           fi
 
@@ -55,20 +55,45 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Bump version and create tag
-        id: tag_version
-        uses: mathieudutour/github-tag-action@v6.1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          default_bump: ${{ steps.bump_type.outputs.bump }}
-          release_branches: "develop"
+      - name: Bump package.json version
+        id: bump_package
+        run: |
+          echo "Current version:"
+          cat package.json | jq .version
+
+          # Récupérer la version courante
+          current_version=$(jq -r .version package.json)
+          bump=${{ steps.bump_type.outputs.bump }}
+
+          echo "Bump type: $bump"
+          echo "Current version: $current_version"
+
+          # Utiliser npm version pour bump la version
+          npm version $bump --no-git-tag-version
+
+          echo "New version:"
+          cat package.json | jq .version
+
+          new_version=$(jq -r .version package.json)
+          echo "new_version=$new_version" >> $GITHUB_OUTPUT
+
+      - name: Commit package.json version bump
+        run: |
+          git add package.json
+          git commit -m "chore: bump version to ${{ steps.bump_package.outputs.new_version }}"
+          git push
+
+      - name: Create git tag
+        run: |
+          new_tag="v${{ steps.bump_package.outputs.new_version }}"
+          git tag $new_tag
+          git push origin $new_tag
 
       - name: Create GitHub Release
-        if: steps.tag_version.outputs.new_tag != ''
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.tag_version.outputs.new_tag }}
-          name: Release ${{ steps.tag_version.outputs.new_tag }}
+          tag_name: v${{ steps.bump_package.outputs.new_version }}
+          name: Release v${{ steps.bump_package.outputs.new_version }}
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
