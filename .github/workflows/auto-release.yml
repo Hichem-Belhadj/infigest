@@ -30,7 +30,7 @@ jobs:
         id: pr_labels
         run: |
           echo "labels=$(curl -s -H 'Authorization: token ${{ secrets.GITHUB_TOKEN }}' \
-            https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.get_pr.outputs.pr_number }}/labels \
+            https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.PR.outputs.number }}/labels \
             | jq -r '.[].name' | tr '\n' ' ')" >> $GITHUB_OUTPUT
 
       - name: Determine bump type
