@@ -18,7 +18,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - uses: 8BitJonny/gh-get-current-pr@3.0.0
+      - name: Get current PR from commit
+        uses: 8BitJonny/gh-get-current-pr@3.0.0
         id: PR
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -29,9 +30,16 @@ jobs:
       - name: Get PR labels
         id: pr_labels
         run: |
-          echo "labels=$(curl -s -H 'Authorization: token ${{ secrets.GITHUB_TOKEN }}' \
+          labels=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.PR.outputs.number }}/labels \
-            | jq -r '.[].name' | tr '\n' ' ')" >> $GITHUB_OUTPUT
+            | jq -r '.[].name' | tr '\n' ' ')
+          echo "labels=$labels" >> "$GITHUB_OUTPUT"
+
+      - name: Debug PR Labels (facultatif)
+        run: |
+          echo "Labels: $LABELS"
+        env:
+          LABELS: ${{ steps.pr_labels.outputs.labels }}
 
       - name: Determine bump type
         id: bump_type
@@ -40,15 +48,14 @@ jobs:
           echo "Detected labels: $LABELS"
 
           if echo "$LABELS" | grep -q "release:major"; then
-            echo "bump=major" >> $GITHUB_OUTPUT
+            echo "bump=major" >> "$GITHUB_OUTPUT"
           elif echo "$LABELS" | grep -q "release:minor"; then
-            echo "bump=minor" >> $GITHUB_OUTPUT
+            echo "bump=minor" >> "$GITHUB_OUTPUT"
           elif echo "$LABELS" | grep -q "release:patch"; then
-            echo "bump=patch" >> $GITHUB_OUTPUT
+            echo "bump=patch" >> "$GITHUB_OUTPUT"
           else
             echo "No recognized label, default bump = patch"
-            echo "bump=patch" >> $GITHUB_OUTPUT
-          fi
+            echo "bump=patch" >> "$GITHUB_OUTPUT"
 
       - name: Set up Git user
         run: |
@@ -61,21 +68,19 @@ jobs:
           echo "Current version:"
           cat package.json | jq .version
 
-          # Récupérer la version courante
           current_version=$(jq -r .version package.json)
           bump=${{ steps.bump_type.outputs.bump }}
 
           echo "Bump type: $bump"
           echo "Current version: $current_version"
 
-          # Utiliser npm version pour bump la version
           npm version $bump --no-git-tag-version
 
           echo "New version:"
           cat package.json | jq .version
 
           new_version=$(jq -r .version package.json)
-          echo "new_version=$new_version" >> $GITHUB_OUTPUT
+          echo "new_version=$new_version" >> "$GITHUB_OUTPUT"
 
       - name: Commit package.json version bump
         run: |
@@ -86,8 +91,8 @@ jobs:
       - name: Create git tag
         run: |
           new_tag="v${{ steps.bump_package.outputs.new_version }}"
-          git tag $new_tag
-          git push origin $new_tag
+          git tag "$new_tag"
+          git push origin "$new_tag"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
