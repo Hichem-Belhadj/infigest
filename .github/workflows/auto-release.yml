@@ -1,105 +1,68 @@
-name: Auto Tag and Release on Merge to Develop branch (with PR Label)
+name: Release Auto
 
 on:
-  push:
+  pull_request:
+    types: [closed]
     branches:
       - develop
 
-permissions:
-  contents: write
-  pull-requests: read
-
 jobs:
-  tag-release:
-    name: Tag and Release based on PR label
+  release:
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: write # pour push tag et commit
+
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Get current PR from commit
-        uses: 8BitJonny/gh-get-current-pr@3.0.0
-        id: PR
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ github.sha }}
-          filterOutClosed: true
-          filterOutDraft: true
+          node-version: '20'
 
-      - name: Get PR labels
-        id: pr_labels
+      - name: Get labels and determine version bump
+        id: version
         run: |
-          labels=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.PR.outputs.number }}/labels \
-            | jq -r '.[].name' | tr '\n' ' ')
-          echo "labels=$labels" >> "$GITHUB_OUTPUT"
-
-      - name: Debug PR Labels (facultatif)
-        run: |
-          echo "Labels: $LABELS"
-        env:
-          LABELS: ${{ steps.pr_labels.outputs.labels }}
-
-      - name: Determine bump type
-        id: bump_type
-        run: |
-          LABELS="${{ steps.pr_labels.outputs.labels }}"
+          LABELS=$(jq -r '.pull_request.labels[].name' <<< "${{ toJson(github.event) }}")
           echo "Detected labels: $LABELS"
 
           if echo "$LABELS" | grep -q "release:major"; then
-            echo "bump=major" >> "$GITHUB_OUTPUT"
+            echo "bump=major" >> $GITHUB_OUTPUT
           elif echo "$LABELS" | grep -q "release:minor"; then
-            echo "bump=minor" >> "$GITHUB_OUTPUT"
+            echo "bump=minor" >> $GITHUB_OUTPUT
           elif echo "$LABELS" | grep -q "release:patch"; then
-            echo "bump=patch" >> "$GITHUB_OUTPUT"
+            echo "bump=patch" >> $GITHUB_OUTPUT
           else
-            echo "No recognized label, default bump = patch"
-            echo "bump=patch" >> "$GITHUB_OUTPUT"
+            echo "Aucun label reconnu, bump patch par défaut"
+            echo "bump=patch" >> $GITHUB_OUTPUT
           fi
 
-      - name: Set up Git user
+      - name: Bump version
+        run: |
+          npm version ${{ steps.version.outputs.bump }} --no-git-tag-version
+
+      - name: Commit version bump
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json || true
+          git commit -m "chore(release): bump version"
 
-      - name: Bump package.json version
-        id: bump_package
-        run: |
-          echo "Current version:"
-          cat package.json | jq .version
-
-          current_version=$(jq -r .version package.json)
-          bump=${{ steps.bump_type.outputs.bump }}
-
-          echo "Bump type: $bump"
-          echo "Current version: $current_version"
-
-          npm version $bump --no-git-tag-version
-
-          echo "New version:"
-          cat package.json | jq .version
-
-          new_version=$(jq -r .version package.json)
-          echo "new_version=$new_version" >> "$GITHUB_OUTPUT"
-
-      - name: Commit package.json version bump
-        run: |
-          git add package.json
-          git commit -m "chore: bump version to ${{ steps.bump_package.outputs.new_version }}"
-          git push
-
-      - name: Create git tag
-        run: |
-          new_tag="v${{ steps.bump_package.outputs.new_version }}"
-          git tag "$new_tag"
-          git push origin "$new_tag"
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ steps.bump_package.outputs.new_version }}
-          name: Release v${{ steps.bump_package.outputs.new_version }}
-          generate_release_notes: true
+      - name: Push commit
+        run: git push origin HEAD:develop
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      - name: Get version
+        id: get_version
+        run: |
+          VERSION=$(jq -r .version package.json)
+          echo "version=v$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create Git Tag
+        run: |
+          git tag ${{ steps.get_version.outputs.version }}
+          git push origin ${{ steps.get_version.outputs.version }}
