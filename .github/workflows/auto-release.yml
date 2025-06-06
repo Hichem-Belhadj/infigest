@@ -1,14 +1,14 @@
-name: Auto Release via PR
+name: Auto Bump & Tag
 
 on:
   pull_request:
-    types: [closed]
+    types: [labeled, opened, synchronize]
     branches:
       - develop
 
 jobs:
-  release:
-    if: github.event.pull_request.merged == true
+  auto-bump:
+    if: contains(toJson(github.event.pull_request.labels), 'release:')
     runs-on: ubuntu-latest
 
     permissions:
@@ -16,62 +16,49 @@ jobs:
       pull-requests: write
 
     steps:
-      - name: Checkout
+      - name: Checkout repo
         uses: actions/checkout@v4
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 20
 
-      - name: Get labels and determine bump
-        id: version
-        env:
-          GITHUB_EVENT_JSON: ${{ toJson(github.event) }}
+      - name: Determine bump level
+        id: bump
         run: |
-          LABELS=$(echo "$GITHUB_EVENT_JSON" | jq -r '.pull_request.labels[].name')
+          LABELS=$(echo '${{ toJson(github.event.pull_request.labels) }}' | jq -r '.[].name')
           echo "Detected labels: $LABELS"
-
           if echo "$LABELS" | grep -q "release:major"; then
             echo "bump=major" >> "$GITHUB_OUTPUT"
           elif echo "$LABELS" | grep -q "release:minor"; then
             echo "bump=minor" >> "$GITHUB_OUTPUT"
-          elif echo "$LABELS" | grep -q "release:patch"; then
-            echo "bump=patch" >> "$GITHUB_OUTPUT"
           else
             echo "bump=patch" >> "$GITHUB_OUTPUT"
-            echo "No matching label, defaulting to patch."
           fi
 
-      - name: Get current version
-        id: get_version
-        run: |
-          VERSION=$(jq -r .version package.json)
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "branch=release/bump-$VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Create release branch
+      - name: Create branch and bump version
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -b ${{ steps.get_version.outputs.branch }}
 
-      - name: Bump version (on release branch)
-        run: |
-          npm version ${{ steps.version.outputs.bump }} --no-git-tag-version
+          VERSION_BEFORE=$(jq -r .version package.json)
+          BRANCH_NAME="release/bump-${VERSION_BEFORE}-$(date +%s)"
+          git checkout -b "$BRANCH_NAME"
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_ENV
 
-      - name: Commit and push bump
+          npm version ${{ steps.bump.outputs.bump }}
+
+      - name: Push commit and tag
         run: |
-          git add package.json package-lock.json || true
-          git commit -m "chore(release): bump version"
-          git push origin ${{ steps.get_version.outputs.branch }}
+          git push origin "$branch_name"
+          git push origin --tags
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GH_TOKEN }}
-          title: "Release ${{ steps.version.outputs.bump }}"
-          body: "Auto-generated PR to bump version after release."
+          title: "Release ${{ steps.bump.outputs.bump }}"
+          body: "Auto-generated PR for version bump based on PR labels."
           base: develop
-          head: ${{ steps.get_version.outputs.branch }}
-          branch: ${{ steps.get_version.outputs.branch }}
+          head: ${{ env.branch_name }}
