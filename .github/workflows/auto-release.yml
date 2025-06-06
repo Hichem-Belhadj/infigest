@@ -1,70 +1,88 @@
-name: Release Bump on Develop
+name: Auto Release via PR
 
 on:
-  push:
+  pull_request:
+    types: [closed]
     branches:
       - develop
 
 jobs:
   release:
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
+
     permissions:
       contents: write
       pull-requests: write
 
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # important pour git describe
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: Extract bump type from last commit message
-        id: version
+      - name: Get release bump from label
+        id: bump
         run: |
-          COMMIT_MSG=$(git log -1 --pretty=%B)
-          echo "Last commit message: $COMMIT_MSG"
+          LABELS=$(echo '${{ toJson(github.event.pull_request.labels) }}' | jq -r '.[].name')
+          echo "Labels: $LABELS"
 
-          if echo "$COMMIT_MSG" | grep -q "release:major"; then
+          if echo "$LABELS" | grep -q "release:major"; then
             echo "bump=major" >> "$GITHUB_OUTPUT"
-          elif echo "$COMMIT_MSG" | grep -q "release:minor"; then
+          elif echo "$LABELS" | grep -q "release:minor"; then
             echo "bump=minor" >> "$GITHUB_OUTPUT"
-          elif echo "$COMMIT_MSG" | grep -q "release:patch"; then
+          elif echo "$LABELS" | grep -q "release:patch"; then
             echo "bump=patch" >> "$GITHUB_OUTPUT"
           else
-            echo "bump=patch" >> "$GITHUB_OUTPUT"
-            echo "No label found, default to patch"
+            echo "No valid release label found."
+            exit 1
           fi
 
-      - name: Create release branch
+      - name: Configure Git
         run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+      - name: Bump version in package.json
+        id: versioning
+        run: |
+          BUMP_TYPE="${{ steps.bump.outputs.bump }}"
+          echo "Bumping version with: $BUMP_TYPE"
+
+          npm version $BUMP_TYPE --no-git-tag-version
+
           VERSION=$(jq -r .version package.json)
-          BRANCH="release/bump-$VERSION"
-          echo "BRANCH=$BRANCH" >> $GITHUB_ENV
+          echo "new_version=$VERSION" >> "$GITHUB_OUTPUT"
 
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -b $BRANCH
-
-      - name: Bump version
+      - name: Create temp branch
         run: |
-          npm version ${{ steps.version.outputs.bump }} --no-git-tag-version
-
-      - name: Commit and push
-        run: |
+          BRANCH="release/v${{ steps.versioning.outputs.new_version }}"
+          git checkout -b "$BRANCH"
           git add package.json package-lock.json || true
-          git commit -m "chore(release): bump version"
-          git push origin $BRANCH
+          git commit -m "chore: bump version to v${{ steps.versioning.outputs.new_version }}"
+          git push origin "$BRANCH"
 
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v6
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          title: "Release ${{ steps.version.outputs.bump }}"
-          body: "Auto PR: bump version after develop push."
-          base: develop
-          head: ${{ env.BRANCH }}
+        run: |
+          gh pr create \
+            --title "chore: release v${{ steps.versioning.outputs.new_version }}" \
+            --body "Auto-generated PR for release." \
+            --base develop \
+            --head "release/v${{ steps.versioning.outputs.new_version }}" \
+            --label "autorelease"
+
+      - name: Create Git tag and release
+        if: ${{ false }} # Désactivé tant que la PR sur develop n'est pas mergée
+        run: |
+          git tag "v${{ steps.versioning.outputs.new_version }}"
+          git push origin "v${{ steps.versioning.outputs.new_version }}"
+
+          gh release create "v${{ steps.versioning.outputs.new_version }}" \
+            --title "v${{ steps.versioning.outputs.new_version }}" \
+            --notes "Release auto from PR #${{ github.event.pull_request.number }}"
