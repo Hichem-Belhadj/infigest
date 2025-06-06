@@ -12,35 +12,37 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: write # pour push tag et commit
+      contents: write  # pour push commits & tags
 
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: Get labels and determine version bump
+      - name: Récupérer les labels et déterminer le bump
         id: version
+        env:
+          GITHUB_EVENT_JSON: ${{ toJson(github.event) }}
         run: |
-          LABELS=$(jq -r '.pull_request.labels[].name' <<< "${{ toJson(github.event) }}")
+          LABELS=$(echo "$GITHUB_EVENT_JSON" | jq -r '.pull_request.labels[].name')
           echo "Detected labels: $LABELS"
 
           if echo "$LABELS" | grep -q "release:major"; then
-            echo "bump=major" >> $GITHUB_OUTPUT
+            echo "bump=major" >> "$GITHUB_OUTPUT"
           elif echo "$LABELS" | grep -q "release:minor"; then
-            echo "bump=minor" >> $GITHUB_OUTPUT
+            echo "bump=minor" >> "$GITHUB_OUTPUT"
           elif echo "$LABELS" | grep -q "release:patch"; then
-            echo "bump=patch" >> $GITHUB_OUTPUT
+            echo "bump=patch" >> "$GITHUB_OUTPUT"
           else
-            echo "Aucun label reconnu, bump patch par défaut"
-            echo "bump=patch" >> $GITHUB_OUTPUT
+            echo "bump=patch" >> "$GITHUB_OUTPUT"
+            echo "No matching label found, defaulting to patch."
           fi
 
-      - name: Bump version
+      - name: Bump version (no tag)
         run: |
           npm version ${{ steps.version.outputs.bump }} --no-git-tag-version
 
@@ -51,18 +53,18 @@ jobs:
           git add package.json package-lock.json || true
           git commit -m "chore(release): bump version"
 
-      - name: Push commit
+      - name: Push commit to develop
         run: git push origin HEAD:develop
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      - name: Get version
+      - name: Lire la version dans package.json
         id: get_version
         run: |
           VERSION=$(jq -r .version package.json)
-          echo "version=v$VERSION" >> $GITHUB_OUTPUT
+          echo "version=v$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Create Git Tag
+      - name: Tag Git
         run: |
           git tag ${{ steps.get_version.outputs.version }}
           git push origin ${{ steps.get_version.outputs.version }}
