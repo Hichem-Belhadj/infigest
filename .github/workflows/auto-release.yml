@@ -43,32 +43,35 @@ jobs:
             echo "No matching label, defaulting to patch."
           fi
 
-      - name: Bump version
-        run: |
-          npm version ${{ steps.version.outputs.bump }} --no-git-tag-version
-
-      - name: Get version
+      - name: Get current version
         id: get_version
         run: |
           VERSION=$(jq -r .version package.json)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "branch=release/bump-$VERSION" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "branch=release/bump-$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Create release branch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b ${{ steps.get_version.outputs.branch }}
+
+      - name: Bump version (on release branch)
+        run: |
+          npm version ${{ steps.version.outputs.bump }} --no-git-tag-version
+
+      - name: Commit and push bump
+        run: |
           git add package.json package-lock.json || true
-          git commit -m "chore(release): bump version to ${{ steps.get_version.outputs.version }}"
+          git commit -m "chore(release): bump version"
           git push origin ${{ steps.get_version.outputs.branch }}
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GH_TOKEN }}
-          title: "Release ${{ steps.get_version.outputs.version }}"
-          body: "Automated release PR for version ${{ steps.get_version.outputs.version }}."
+          title: "Release ${{ steps.version.outputs.bump }}"
+          body: "Auto-generated PR to bump version after release."
           base: develop
           head: ${{ steps.get_version.outputs.branch }}
           branch: ${{ steps.get_version.outputs.branch }}
