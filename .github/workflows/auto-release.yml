@@ -1,4 +1,4 @@
-name: Auto Release via PR
+name: Auto Release
 
 on:
   pull_request:
