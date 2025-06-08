@@ -1,61 +1,86 @@
 # Infigest
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 19.2.14.
+[![Tauri](https://img.shields.io/badge/tauri-%23000000?style=flat&logo=tauri&logoColor=white)](https://tauri.app/)
+[![Angular](https://img.shields.io/badge/angular-19-DD0031?style=flat&logo=angular&logoColor=white)](https://angular.io/)
+[![Rust](https://img.shields.io/badge/rust-1.76.0-orange?style=flat&logo=rust&logoColor=white)](https://www.rust-lang.org/)
 
-## Development server
+> Application de bureau développée avec Angular 19 pour le frontend et Tauri (Rust) pour le backend natif.  
+> Pensée pour être légère, rapide et portable, tout en tirant parti de la puissance native de Rust.
 
-To start a local development server, run:
+---
 
-```bash
-ng serve
-```
+## 🧰 Prérequis
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+### 📦 Installer Angular CLI (v16+ compatible avec Angular 19)
 
 ```bash
-ng generate component component-name
+  npm install -g @angular/cli
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+### ⚙️ Installer Rust (via rustup)
 
 ```bash
-ng generate --help
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+  # Ou sous Windows : https://rustup.rs
 ```
 
-## Building
+> Assure-toi que `cargo` est bien dans ton `$PATH`.
 
-To build the project run:
+### 🛠 Installer les dépendances Tauri
 
 ```bash
-ng build
+  cargo install tauri-cli
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+---
 
-## Running unit tests
-
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
+## 🚀 Lancer l'application en mode développement
 
 ```bash
-ng test
+  npm install
+  npm run tauri:dev
 ```
 
-## Running end-to-end tests
+Cela :
+- lance Angular en mode développement (`ng serve`)
+- puis démarre Tauri avec hot-reload (`tauri dev`)
 
-For end-to-end (e2e) testing, run:
+---
+
+## 📦 Compiler l'application (production)
 
 ```bash
-ng e2e
+  npm run build
+  npm run tauri:build
 ```
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+Cela :
+- génère un build Angular optimisé (`dist/infigest`)
+- génère l'application native avec Tauri (`src-tauri/target/release`)
 
-## Additional Resources
+---
 
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+## 📁 Structure du projet
 
-test
+    infigest/
+    ├── src/                 # Code source Angular
+    ├── src-tauri/           # Backend natif Tauri (Rust)
+    ├── package.json         # Scripts npm
+    ├── tauri.conf.json      # Configuration Tauri
+    └── README.md            # Documentation
+
+---
+
+## 🧪 Tests
+
+```bash
+  npm run test
+```
+
+---
+
+## 📜 License
+
+MIT
+
+---
