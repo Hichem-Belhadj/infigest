@@ -26,6 +26,7 @@
     "@angular/platform-browser": "^19.2.0",
     "@angular/platform-browser-dynamic": "^19.2.0",
     "@angular/router": "^19.2.0",
+    "@ngx-translate/core": "^16.0.4",
     "@taiga-ui/core": "^4.39.2",
     "@taiga-ui/experimental": "^4.39.2",
     "@taiga-ui/kit": "^4.39.2",
