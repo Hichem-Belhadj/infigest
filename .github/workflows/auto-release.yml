@@ -59,11 +59,17 @@ jobs:
           VERSION=$(jq -r .version package.json)
           echo "new_version=$VERSION" >> "$GITHUB_OUTPUT"
 
+      - name: Update version in tauri.conf.json
+        run: |
+          VERSION=${{ steps.versioning.outputs.new_version }}
+          jq --arg version "$VERSION" '.version = $version' src-tauri/tauri.conf.json > src-tauri/tauri.conf.tmp.json
+          mv src-tauri/tauri.conf.tmp.json src-tauri/tauri.conf.json
+
       - name: Create and push release branch
         run: |
           BRANCH="release/v${{ steps.versioning.outputs.new_version }}"
           git checkout -b "$BRANCH"
-          git add package.json package-lock.json || true
+          git add package.json package-lock.json src-tauri/tauri.conf.json || true
           git commit -m "chore: bump version to v${{ steps.versioning.outputs.new_version }}"
           git push origin "$BRANCH" --force
 
