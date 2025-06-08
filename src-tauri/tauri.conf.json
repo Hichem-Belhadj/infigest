@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "infigest",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "identifier": "com.hichem.infigest",
   "build": {
     "frontendDist": "../dist/infigest",
