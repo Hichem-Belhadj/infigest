@@ -7,4 +7,7 @@ module.exports = {
   transformIgnorePatterns: [
     '/node_modules/(?!flat)/',
   ],
+  moduleNameMapper: {
+    '^@shared/(.*)$': '<rootDir>/src/app/shared/$1'
+  }
 };
