@@ -1,0 +1,32 @@
+<aside [tuiNavigationAside]="expanded()">
+  <header>
+    <a
+      iconStart="@tui.home"
+      tuiAsideItem
+      routerLink=""
+      [routerLinkActiveOptions]="{exact: true}">
+      <span tuiFade>{{ 'common.dashboard' | translate }}</span>
+    </a>
+  </header>
+  <a
+    iconStart="@tui.users"
+    tuiAsideItem
+    routerLink="/group">
+    Groups
+  </a>
+  <footer>
+    <button
+      iconStart="@tui.star"
+      tuiAsideItem
+      type="button">
+      Favorites
+    </button>
+    <button
+      tuiAsideItem
+      type="button"
+      [iconStart]="expanded() ? '@tui.chevron-left' : '@tui.chevron-right'"
+      (click)="handleToggle()">
+      {{ expanded() ? 'Collapse' : 'Expand' }}
+    </button>
+  </footer>
+</aside>
