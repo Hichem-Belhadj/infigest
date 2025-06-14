@@ -1,0 +1,42 @@
+<div class="custom-portal"><ng-container #viewContainer /></div>
+<app-header/>
+<div class="aside__wrapper">
+  <app-sidebar/>
+  <main tuiNavigationMain>
+    <nav
+      compact
+      tuiSubheader
+      [style.position]="'sticky'"
+    >
+      <tui-breadcrumbs [itemsLimit]="10">
+
+        @for(item of breadcrumbs; track item; let last = $last) {
+          <ng-container>
+            @if(last) {
+              <ng-container>
+                <strong
+                  *tuiItem
+                  tuiFade
+                >
+                  {{ item }}
+                </strong>
+              </ng-container>
+            }
+            @if(!last) {
+              <ng-container>
+                <button
+                  *tuiItem
+                  tuiLink
+                  type="button"
+                >
+                  {{ item }}
+                </button>
+              </ng-container>
+            }
+          </ng-container>
+        }
+      </tui-breadcrumbs>
+    </nav>
+    <router-outlet/>
+  </main>
+</div>

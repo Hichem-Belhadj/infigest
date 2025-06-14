@@ -1,0 +1,14 @@
+@import "mixins";
+
+:host {
+  @include flex-center;
+
+  .custom-portal {
+    z-index: 99;
+  }
+
+  .aside__wrapper {
+    display: flex;
+    height: calc(100% - 48px);
+  }
+}
